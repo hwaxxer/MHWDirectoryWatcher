@@ -1,0 +1,4 @@
+Introduction
+============
+
+MHDirectoryWatcher is a file monitoring class that polls a given path for changes, polling file sizes every second to make sure that file transfers are complete.
