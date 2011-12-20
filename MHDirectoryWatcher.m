@@ -7,8 +7,8 @@
 #include <fcntl.h>
 #import <CoreFoundation/CoreFoundation.h>
 
-#define kPollInterval 0.3
-#define kPollRetryCount 3
+#define kPollInterval 0.2
+#define kPollRetryCount 10
 
 @interface MHDirectoryWatcher (MHDirectoryWatcherPrivate)
 - (BOOL)startMonitoringDirectory:(NSString *)dirPath;
@@ -112,14 +112,16 @@
     [self setIsDirectoryChanging:![newDirectoryMetadata isEqualToArray:oldDirectoryMetadata]];
     // Reset retries if it's still changing
     retriesLeft = ([self isDirectoryChanging]) ? kPollRetryCount : retriesLeft;
-    
+    DLog(@"retries left: %d", retriesLeft);
     if ([self isDirectoryChanging] || 0 < retriesLeft--) {
         // Either the directory is changing or we should try again
         [self checkChangesAfterDelay:kPollInterval];                    
     } else {
-        // Post a notification informating that the directory did change (and seems stable)
-        [[NSNotificationCenter defaultCenter] postNotificationName:MHDirectoryDidChangeNotification 
-                                                            object:self];
+        // Post a notification on the main thread informating that the directory did change (and seems stable)
+        dispatch_async(dispatch_get_main_queue(), ^{
+            [[NSNotificationCenter defaultCenter] postNotificationName:MHDirectoryDidChangeNotification 
+                                                                object:self];            
+        });
     }
 }
 - (void)directoryDidChange
