@@ -6,6 +6,3 @@ Just copy the files into your project, start the watcher using +startWatchingFol
 Add an observer for the notification name MHDirectoryDidChangeNotification. 
 
 Call -stopWatching/-startWatching to pause/resume.
-
-=
-MHDirectoryWatcher is based on the Apple sample project http://developer.apple.com/library/ios/#samplecode/DocInteraction/Introduction/Intro.html
