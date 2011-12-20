@@ -1,138 +1,65 @@
 /*
-     File: DirectoryWatcher.m 
- Abstract: 
- Object used to monitor the contents of a given directory by using
- "kqueue": a kernel event notification mechanism.
-  
-  Version: 1.3 
-  
- Disclaimer: IMPORTANT:  This Apple software is supplied to you by Apple 
- Inc. ("Apple") in consideration of your agreement to the following 
- terms, and your use, installation, modification or redistribution of 
- this Apple software constitutes acceptance of these terms.  If you do 
- not agree with these terms, please do not use, install, modify or 
- redistribute this Apple software. 
-  
- In consideration of your agreement to abide by the following terms, and 
- subject to these terms, Apple grants you a personal, non-exclusive 
- license, under Apple's copyrights in this original Apple software (the 
- "Apple Software"), to use, reproduce, modify and redistribute the Apple 
- Software, with or without modifications, in source and/or binary forms; 
- provided that if you redistribute the Apple Software in its entirety and 
- without modifications, you must retain this notice and the following 
- text and disclaimers in all such redistributions of the Apple Software. 
- Neither the name, trademarks, service marks or logos of Apple Inc. may 
- be used to endorse or promote products derived from the Apple Software 
- without specific prior written permission from Apple.  Except as 
- expressly stated in this notice, no other rights or licenses, express or 
- implied, are granted by Apple herein, including but not limited to any 
- patent rights that may be infringed by your derivative works or by other 
- works in which the Apple Software may be incorporated. 
-  
- The Apple Software is provided by Apple on an "AS IS" basis.  APPLE 
- MAKES NO WARRANTIES, EXPRESS OR IMPLIED, INCLUDING WITHOUT LIMITATION 
- THE IMPLIED WARRANTIES OF NON-INFRINGEMENT, MERCHANTABILITY AND FITNESS 
- FOR A PARTICULAR PURPOSE, REGARDING THE APPLE SOFTWARE OR ITS USE AND 
- OPERATION ALONE OR IN COMBINATION WITH YOUR PRODUCTS. 
-  
- IN NO EVENT SHALL APPLE BE LIABLE FOR ANY SPECIAL, INDIRECT, INCIDENTAL 
- OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF 
- SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS 
- INTERRUPTION) ARISING IN ANY WAY OUT OF THE USE, REPRODUCTION, 
- MODIFICATION AND/OR DISTRIBUTION OF THE APPLE SOFTWARE, HOWEVER CAUSED 
- AND WHETHER UNDER THEORY OF CONTRACT, TORT (INCLUDING NEGLIGENCE), 
- STRICT LIABILITY OR OTHERWISE, EVEN IF APPLE HAS BEEN ADVISED OF THE 
- POSSIBILITY OF SUCH DAMAGE. 
-  
- Copyright (C) 2011 Apple Inc. All Rights Reserved. 
-  
- */ 
+ *  MHDirectoryWatcher.h
+ *  Hacked by Martin Hwasser on 12/19/11.
+ */
 
 #import "MHDirectoryWatcher.h"
-
-#include <sys/types.h>
-#include <sys/event.h>
-#include <sys/time.h>
 #include <fcntl.h>
-#include <unistd.h>
-
 #import <CoreFoundation/CoreFoundation.h>
 
 #define kPollInterval 1
 
 @interface MHDirectoryWatcher (MHDirectoryWatcherPrivate)
 - (BOOL)startMonitoringDirectory:(NSString *)dirPath;
-- (void)kqueueFired;
+- (void)pollDirectoryForChanges:(NSArray *)oldDirectoryMetadata;
 @end
 
+@interface MHDirectoryWatcher () {
+    dispatch_source_t source;
+}
 
-#pragma mark -
-
-@interface MHDirectoryWatcher ()
 @property (nonatomic) BOOL isDirectoryChanging;
+
 @end
 
 @implementation MHDirectoryWatcher
 
 @synthesize isDirectoryChanging;
-@synthesize delegate;
 @synthesize watchedPath;
-
-- (id)init
-{
-	self= [super init];
-	delegate = NULL;
-
-	dirFD = -1;
-    kq = -1;
-	dirKQRef = NULL;
-	
-	return self;
-}
 
 - (void)dealloc
 {
     [self setWatchedPath:nil];
-	[self invalidate];
+    [self stopWatching];
 	[super dealloc];
 }
 
-+ (MHDirectoryWatcher *)watchFolderWithPath:(NSString *)watchPath delegate:(id)watchDelegate
++ (MHDirectoryWatcher *)startWatchingFolderWithPath:(NSString *)watchPath
 {
 	MHDirectoryWatcher *retVal = NULL;
-	if ((watchDelegate != NULL) && (watchPath != NULL))
-	{
-
+	if (watchPath != NULL) {
 		MHDirectoryWatcher *tempManager = [[[MHDirectoryWatcher alloc] init] autorelease];
-		tempManager.delegate = watchDelegate;		
-		if ([tempManager startMonitoringDirectory: watchPath])
-		{
+		if ([tempManager startMonitoringDirectory:watchPath]) {
 			// Everything appears to be in order, so return the DirectoryWatcher.  
 			// Otherwise we'll fall through and return NULL.
-			retVal = tempManager;
-            [retVal setWatchedPath:watchPath];
+            retVal = tempManager;
+            [tempManager setWatchedPath:watchPath];
 		}
 	}
 	return retVal;
 }
 
-- (void)invalidate
+- (void)stopWatching
 {
-	if (dirKQRef != NULL)
-	{
-		CFFileDescriptorInvalidate(dirKQRef);
-		CFRelease(dirKQRef);
-		dirKQRef = NULL;
-		// We don't need to close the kq, CFFileDescriptorInvalidate closed it instead.
-		// Change the value so no one thinks it's still live.
-		kq = -1;
-	}
-	
-	if(dirFD != -1)
-	{
-		close(dirFD);
-		dirFD = -1;
-	}
+    if (source != NULL) {
+        dispatch_source_cancel(source); 
+        dispatch_release(source); 
+        source = NULL;
+    }
+}
+- (BOOL)startWatching
+{
+    return [self startMonitoringDirectory:[self watchedPath]];
 }
 
 @end
@@ -150,11 +77,10 @@
     NSMutableArray *directoryMetadata = [NSMutableArray array];
     
     for (NSString *fileName in contents) {
-        
         NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
         NSString *filePath = [[self watchedPath] stringByAppendingPathComponent:fileName];
         
-        NSError *error;
+        NSError *error = nil;
         NSDictionary *fileAttributes = [[NSFileManager defaultManager] attributesOfItemAtPath:filePath 
                                                                                         error:&error];
         NSInteger fileSize = [[fileAttributes objectForKey:NSFileSize] intValue];
@@ -166,13 +92,33 @@
     
     return directoryMetadata;
 }
+
 - (void)checkChangesAfterDelay:(NSTimeInterval)timeInterval
 {
     NSArray *directoryMetadata = [self directoryMetadata];
-    [self performSelector:@selector(pollDirectoryForChanges:) 
-               withObject:directoryMetadata
-               afterDelay:timeInterval];    
+
+    double delayInSeconds = 1.0;
+    dispatch_time_t popTime = dispatch_time(DISPATCH_TIME_NOW, delayInSeconds * NSEC_PER_SEC);
+    dispatch_after(popTime, dispatch_get_current_queue(), ^(void){
+        [self pollDirectoryForChanges:directoryMetadata];
+    });
 }
+
+- (void)pollDirectoryForChanges:(NSArray *)oldDirectoryMetadata
+{
+    NSArray *newDirectoryMetadata = [self directoryMetadata];
+
+    [self setIsDirectoryChanging:![newDirectoryMetadata isEqualToArray:oldDirectoryMetadata]];
+
+    if ([self isDirectoryChanging]) {
+        [self checkChangesAfterDelay:kPollInterval];                        
+    } else {
+        // Notify delegate on the main thread that directory did change (and seems stable)
+        [[NSNotificationCenter defaultCenter] postNotificationName:MHDirectoryDidChangeNotification 
+                                                            object:self];
+    }
+}
+
 - (void)directoryDidChange
 {
     if (![self isDirectoryChanging]) {
@@ -180,108 +126,51 @@
         [self checkChangesAfterDelay:kPollInterval];
     }
 }    
-- (void)pollDirectoryForChanges:(NSArray *)oldDirectoryMetadata
-{
-    NSArray *newDirectoryMetadata = [self directoryMetadata];
-
-    if (![newDirectoryMetadata isEqualToArray:oldDirectoryMetadata]) {
-        [self checkChangesAfterDelay:kPollInterval];                        
-
-    } else {
-        isDirectoryChanging = NO;
-        
-        // Notify delegate that directory did change (and seems stable)
-        [delegate directoryDidChange:self];
-    }
-}
-
-#pragma mark -
-
-- (void)kqueueFired
-{
-    assert(kq >= 0);
-
-    struct kevent   event;
-    struct timespec timeout = {0, 0};
-    int             eventCount;
-	
-    eventCount = kevent(kq, NULL, 0, &event, 1, &timeout);
-    assert((eventCount >= 0) && (eventCount < 2));
-    
-	// call our delegate of the directory change
-    [self directoryDidChange];
-
-    CFFileDescriptorEnableCallBacks(dirKQRef, kCFFileDescriptorReadCallBack);
-}
-
-static void KQCallback(CFFileDescriptorRef kqRef, CFOptionFlags callBackTypes, void *info)
-{
-    MHDirectoryWatcher *obj;
-	
-    obj = (MHDirectoryWatcher *)info;
-    assert([obj isKindOfClass:[MHDirectoryWatcher class]]);
-    assert(kqRef == obj->dirKQRef);
-    assert(callBackTypes == kCFFileDescriptorReadCallBack);
-	
-    [obj kqueueFired];
-}
 
 - (BOOL)startMonitoringDirectory:(NSString *)dirPath
 {
-	// Double initializing is not going to work...
-	if ((dirKQRef == NULL) && (dirFD == -1) && (kq == -1))
-	{
-		// Open the directory we're going to watch
-		dirFD = open([dirPath fileSystemRepresentation], O_EVTONLY);
-		if (dirFD >= 0)
-		{
-			// Create a kqueue for our event messages...
-			kq = kqueue();
-			if (kq >= 0)
-			{
-				struct kevent eventToAdd;
-				eventToAdd.ident  = dirFD;
-				eventToAdd.filter = EVFILT_VNODE;
-				eventToAdd.flags  = EV_ADD | EV_CLEAR;
-				eventToAdd.fflags = NOTE_WRITE;
-				eventToAdd.data   = 0;
-				eventToAdd.udata  = NULL;
-				
-				int errNum = kevent(kq, &eventToAdd, 1, NULL, 0, NULL);
-				if (errNum == 0)
-				{
-					CFFileDescriptorContext context = { 0, self, NULL, NULL, NULL };
-					CFRunLoopSourceRef      rls;
-
-					// Passing true in the third argument so CFFileDescriptorInvalidate will close kq.
-					dirKQRef = CFFileDescriptorCreate(NULL, kq, true, KQCallback, &context);
-					if (dirKQRef != NULL)
-					{
-						rls = CFFileDescriptorCreateRunLoopSource(NULL, dirKQRef, 0);
-						if (rls != NULL)
-						{
-							CFRunLoopAddSource(CFRunLoopGetCurrent(), rls, kCFRunLoopDefaultMode);
-							CFRelease(rls);
-							CFFileDescriptorEnableCallBacks(dirKQRef, kCFFileDescriptorReadCallBack);
-							
-							// If everything worked, return early and bypass shutting things down
-							return YES;
-						}
-						// Couldn't create a runloop source, invalidate and release the CFFileDescriptorRef
-						CFFileDescriptorInvalidate(dirKQRef);
-                        CFRelease(dirKQRef);
-						dirKQRef = NULL;
-					}
-				}
-				// kq is active, but something failed, close the handle...
-				close(kq);
-				kq = -1;
-			}
-			// file handle is open, but something failed, close the handle...
-			close(dirFD);
-			dirFD = -1;
-		}
+    NSAssert(dirPath != nil, @"Path to watch is nil");
+    
+    // Already monitoring
+	if (source != NULL) {
+        return NO;   
+    }
+    
+	// Open an event-only file descriptor associated with the directory
+	int fd = open([dirPath fileSystemRepresentation], O_EVTONLY);
+	if (fd < 0) {
+        return NO;   
+    }
+    
+    void (^cleanup)() = ^{ 
+        close(fd);
+    }; 
+    // Get a low priority queue
+	dispatch_queue_t queue = dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0);
+    
+	// Monitor the directory for writes
+	source = dispatch_source_create(DISPATCH_SOURCE_TYPE_VNODE,	// dispatch_source_vnode_flags_t
+                                    fd, // our file descriptor
+                                    DISPATCH_VNODE_WRITE, // mask for writes
+                                    queue);
+	if (!source) {
+        cleanup();
+		return NO;
 	}
-	return NO;
+
+	// Call directoryDidChange on event callback
+	dispatch_source_set_event_handler(source, ^{
+        [self directoryDidChange];  
+    });
+    
+    // Dispatch source destructor 
+	dispatch_source_set_cancel_handler(source, cleanup);
+    
+	// Sources are create in suspended state, so resume it
+	dispatch_resume(source);
+
+    // Everything was OK
+    return YES;
 }
+
 @end
