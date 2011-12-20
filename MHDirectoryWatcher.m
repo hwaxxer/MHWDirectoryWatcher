@@ -7,7 +7,8 @@
 #include <fcntl.h>
 #import <CoreFoundation/CoreFoundation.h>
 
-#define kPollInterval 1
+#define kPollInterval 0.3
+#define kPollRetryCount 3
 
 @interface MHDirectoryWatcher (MHDirectoryWatcherPrivate)
 - (BOOL)startMonitoringDirectory:(NSString *)dirPath;
@@ -16,6 +17,7 @@
 
 @interface MHDirectoryWatcher () {
     dispatch_source_t source;
+    int retriesLeft;
 }
 
 @property (nonatomic) BOOL isDirectoryChanging;
@@ -40,7 +42,7 @@
 	if (watchPath != NULL) {
 		MHDirectoryWatcher *tempManager = [[[MHDirectoryWatcher alloc] init] autorelease];
 		if ([tempManager startMonitoringDirectory:watchPath]) {
-			// Everything appears to be in order, so return the DirectoryWatcher.  
+			// Everything appears to be in order, so return the DirectoryWatcher.
 			// Otherwise we'll fall through and return NULL.
             retVal = tempManager;
             [tempManager setWatchedPath:watchPath];
@@ -52,8 +54,8 @@
 - (void)stopWatching
 {
     if (source != NULL) {
-        dispatch_source_cancel(source); 
-        dispatch_release(source); 
+        dispatch_source_cancel(source);
+        dispatch_release(source);
         source = NULL;
     }
 }
@@ -78,54 +80,58 @@
     
     for (NSString *fileName in contents) {
         NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
+        
         NSString *filePath = [[self watchedPath] stringByAppendingPathComponent:fileName];
-        
-        NSError *error = nil;
         NSDictionary *fileAttributes = [[NSFileManager defaultManager] attributesOfItemAtPath:filePath 
-                                                                                        error:&error];
+                                                                                        error:nil];
         NSInteger fileSize = [[fileAttributes objectForKey:NSFileSize] intValue];
-        NSString *fileWithLength = [NSString stringWithFormat:@"%@%d", fileName, fileSize];
         
-        [directoryMetadata addObject:fileWithLength];
+        // The fileName and fileSize will be our hash key
+        NSString *fileHash = [NSString stringWithFormat:@"%@%d", fileName, fileSize];
+        // Add it to our metadata list 
+        [directoryMetadata addObject:fileHash];
+
         [pool release];
     }
-    
     return directoryMetadata;
 }
-
 - (void)checkChangesAfterDelay:(NSTimeInterval)timeInterval
 {
     NSArray *directoryMetadata = [self directoryMetadata];
-
-    double delayInSeconds = 1.0;
-    dispatch_time_t popTime = dispatch_time(DISPATCH_TIME_NOW, delayInSeconds * NSEC_PER_SEC);
+    
+    dispatch_time_t popTime = dispatch_time(DISPATCH_TIME_NOW, timeInterval * NSEC_PER_SEC);
     dispatch_after(popTime, dispatch_get_current_queue(), ^(void){
         [self pollDirectoryForChanges:directoryMetadata];
     });
 }
-
 - (void)pollDirectoryForChanges:(NSArray *)oldDirectoryMetadata
 {
     NSArray *newDirectoryMetadata = [self directoryMetadata];
-
+    
+    // Check if metadata has changed
     [self setIsDirectoryChanging:![newDirectoryMetadata isEqualToArray:oldDirectoryMetadata]];
-
-    if ([self isDirectoryChanging]) {
-        [self checkChangesAfterDelay:kPollInterval];                        
+    // Reset retries if it's still changing
+    retriesLeft = ([self isDirectoryChanging]) ? kPollRetryCount : retriesLeft;
+    
+    if ([self isDirectoryChanging] || 0 < retriesLeft--) {
+        // Either the directory is changing or we should try again
+        [self checkChangesAfterDelay:kPollInterval];                    
     } else {
-        // Notify delegate on the main thread that directory did change (and seems stable)
+        // Post a notification informating that the directory did change (and seems stable)
         [[NSNotificationCenter defaultCenter] postNotificationName:MHDirectoryDidChangeNotification 
                                                             object:self];
     }
 }
-
 - (void)directoryDidChange
 {
     if (![self isDirectoryChanging]) {
         isDirectoryChanging = YES;
+        retriesLeft = kPollRetryCount;
         [self checkChangesAfterDelay:kPollInterval];
     }
 }    
+
+# pragma mark - Monitoring
 
 - (BOOL)startMonitoringDirectory:(NSString *)dirPath
 {
@@ -133,7 +139,7 @@
     
     // Already monitoring
 	if (source != NULL) {
-        return NO;   
+        return NO;
     }
     
 	// Open an event-only file descriptor associated with the directory
@@ -157,10 +163,10 @@
         cleanup();
 		return NO;
 	}
-
+    
 	// Call directoryDidChange on event callback
 	dispatch_source_set_event_handler(source, ^{
-        [self directoryDidChange];  
+        [self directoryDidChange];
     });
     
     // Dispatch source destructor 
@@ -168,7 +174,7 @@
     
 	// Sources are create in suspended state, so resume it
 	dispatch_resume(source);
-
+    
     // Everything was OK
     return YES;
 }
