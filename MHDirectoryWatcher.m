@@ -135,8 +135,6 @@
 
 - (BOOL)startMonitoringDirectory:(NSString *)dirPath
 {
-    NSAssert(dirPath != nil, @"Path to watch is nil");
-    
     // Already monitoring
 	if (source != NULL) {
         return NO;
