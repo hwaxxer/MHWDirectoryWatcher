@@ -8,7 +8,7 @@
 #import <CoreFoundation/CoreFoundation.h>
 
 #define kPollInterval 0.2
-#define kPollRetryCount 10
+#define kPollRetryCount 5
 
 @interface MHDirectoryWatcher (MHDirectoryWatcherPrivate)
 - (BOOL)startMonitoringDirectory:(NSString *)dirPath;
@@ -36,7 +36,7 @@
 	[super dealloc];
 }
 
-+ (MHDirectoryWatcher *)startWatchingFolderWithPath:(NSString *)watchPath
++ (MHDirectoryWatcher *)watchFolderWithPath:(NSString *)watchPath startImmediately:(BOOL)startImmediately
 {
 	MHDirectoryWatcher *retVal = NULL;
 	if (watchPath != NULL) {
@@ -49,6 +49,10 @@
 		}
 	}
 	return retVal;
+}
++ (MHDirectoryWatcher *)watchFolderWithPath:(NSString *)watchPath
+{
+    return [[self class] watchFolderWithPath:watchPath startImmediately:NO];
 }
 
 - (void)stopWatching
@@ -86,6 +90,7 @@
                                                                                         error:nil];
         NSInteger fileSize = [[fileAttributes objectForKey:NSFileSize] intValue];
         
+        
         // The fileName and fileSize will be our hash key
         NSString *fileHash = [NSString stringWithFormat:@"%@%d", fileName, fileSize];
         // Add it to our metadata list 
@@ -112,14 +117,14 @@
     [self setIsDirectoryChanging:![newDirectoryMetadata isEqualToArray:oldDirectoryMetadata]];
     // Reset retries if it's still changing
     retriesLeft = ([self isDirectoryChanging]) ? kPollRetryCount : retriesLeft;
-    DLog(@"retries left: %d", retriesLeft);
+
     if ([self isDirectoryChanging] || 0 < retriesLeft--) {
         // Either the directory is changing or we should try again
         [self checkChangesAfterDelay:kPollInterval];                    
     } else {
         // Post a notification on the main thread informating that the directory did change (and seems stable)
         dispatch_async(dispatch_get_main_queue(), ^{
-            [[NSNotificationCenter defaultCenter] postNotificationName:MHDirectoryDidChangeNotification 
+            [[NSNotificationCenter defaultCenter] postNotificationName:MHDirectoryDidFinishChangesNotification 
                                                                 object:self];            
         });
     }
@@ -127,6 +132,10 @@
 - (void)directoryDidChange
 {
     if (![self isDirectoryChanging]) {
+        dispatch_async(dispatch_get_main_queue(), ^{
+            [[NSNotificationCenter defaultCenter] postNotificationName:MHDirectoryDidStartChangesNotification
+                                                                object:self];    
+        });
         isDirectoryChanging = YES;
         retriesLeft = kPollRetryCount;
         [self checkChangesAfterDelay:kPollInterval];
@@ -157,7 +166,7 @@
 	// Monitor the directory for writes
 	source = dispatch_source_create(DISPATCH_SOURCE_TYPE_VNODE,	// dispatch_source_vnode_flags_t
                                     fd, // our file descriptor
-                                    DISPATCH_VNODE_WRITE, // mask for writes
+                                    DISPATCH_VNODE_WRITE,
                                     queue);
 	if (!source) {
         cleanup();

@@ -5,19 +5,16 @@
 
 #import <Foundation/Foundation.h>
 
-static NSString * const MHDirectoryDidChangeNotification = @"MHDirectoryDidChangeNotification";
-
-@class MHDirectoryWatcher;
-
-@protocol MHDirectoryWatcherDelegate <NSObject>
-- (void)directoryDidChange:(MHDirectoryWatcher *)folderWatcher;
-@end
+static NSString * const MHDirectoryDidStartChangesNotification = @"MHDirectoryDidStartChangesNotification";
+static NSString * const MHDirectoryDidFinishChangesNotification = @"MHDirectoryDidFinishChangesNotification";
 
 @interface MHDirectoryWatcher : NSObject
 
 @property (nonatomic, copy) NSString *watchedPath;
 
-+ (MHDirectoryWatcher *)startWatchingFolderWithPath:(NSString *)watchPath;
+// Does not start immediately by default
++ (MHDirectoryWatcher *)watchFolderWithPath:(NSString *)watchPath;
++ (MHDirectoryWatcher *)watchFolderWithPath:(NSString *)watchPath startImmediately:(BOOL)startImmediately;
 
 - (void)stopWatching;
 - (BOOL)startWatching;
