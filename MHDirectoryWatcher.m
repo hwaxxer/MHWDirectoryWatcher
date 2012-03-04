@@ -31,16 +31,14 @@
 
 - (void)dealloc
 {
-    [self setWatchedPath:nil];
     [self stopWatching];
-	[super dealloc];
 }
 
 + (MHDirectoryWatcher *)watchFolderWithPath:(NSString *)watchPath startImmediately:(BOOL)startImmediately
 {
 	MHDirectoryWatcher *retVal = NULL;
 	if (watchPath != NULL) {
-		MHDirectoryWatcher *tempManager = [[[MHDirectoryWatcher alloc] init] autorelease];
+		MHDirectoryWatcher *tempManager = [[MHDirectoryWatcher alloc] init];
 		if ([tempManager startMonitoringDirectory:watchPath]) {
 			// Everything appears to be in order, so return the DirectoryWatcher.
 			// Otherwise we'll fall through and return NULL.
@@ -83,20 +81,20 @@
     NSMutableArray *directoryMetadata = [NSMutableArray array];
     
     for (NSString *fileName in contents) {
-        NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
+        @autoreleasepool {
         
-        NSString *filePath = [[self watchedPath] stringByAppendingPathComponent:fileName];
-        NSDictionary *fileAttributes = [[NSFileManager defaultManager] attributesOfItemAtPath:filePath 
-                                                                                        error:nil];
-        NSInteger fileSize = [[fileAttributes objectForKey:NSFileSize] intValue];
-        
-        
-        // The fileName and fileSize will be our hash key
-        NSString *fileHash = [NSString stringWithFormat:@"%@%d", fileName, fileSize];
-        // Add it to our metadata list 
-        [directoryMetadata addObject:fileHash];
+            NSString *filePath = [[self watchedPath] stringByAppendingPathComponent:fileName];
+            NSDictionary *fileAttributes = [[NSFileManager defaultManager] attributesOfItemAtPath:filePath 
+                                                                                            error:nil];
+            NSInteger fileSize = [[fileAttributes objectForKey:NSFileSize] intValue];
+            
+            
+            // The fileName and fileSize will be our hash key
+            NSString *fileHash = [NSString stringWithFormat:@"%@%d", fileName, fileSize];
+            // Add it to our metadata list 
+            [directoryMetadata addObject:fileHash];
 
-        [pool release];
+        }
     }
     return directoryMetadata;
 }
