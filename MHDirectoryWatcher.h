@@ -13,10 +13,12 @@ static NSString * const MHDirectoryDidFinishChangesNotification = @"MHDirectoryD
 @property (nonatomic, copy) NSString *watchedPath;
 
 // Does not start immediately by default
-+ (MHDirectoryWatcher *)watchFolderWithPath:(NSString *)watchPath;
-+ (MHDirectoryWatcher *)watchFolderWithPath:(NSString *)watchPath startImmediately:(BOOL)startImmediately;
++ (MHDirectoryWatcher *)directoryWatcherAtPath:(NSString *)watchPath;
 
-- (void)stopWatching;
+// Returns YES if started watching, NO if already is watching
 - (BOOL)startWatching;
+// Returns YES if stopped watching, NO if not watching
+- (BOOL)stopWatching;
+
 
 @end

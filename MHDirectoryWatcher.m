@@ -34,7 +34,7 @@
     [self stopWatching];
 }
 
-+ (MHDirectoryWatcher *)watchFolderWithPath:(NSString *)watchPath startImmediately:(BOOL)startImmediately
++ (MHDirectoryWatcher *)directoryWatcherAtPath:(NSString *)watchPath
 {
 	MHDirectoryWatcher *retVal = NULL;
 	if (watchPath != NULL) {
@@ -48,19 +48,18 @@
 	}
 	return retVal;
 }
-+ (MHDirectoryWatcher *)watchFolderWithPath:(NSString *)watchPath
-{
-    return [[self class] watchFolderWithPath:watchPath startImmediately:NO];
-}
 
-- (void)stopWatching
+- (BOOL)stopWatching
 {
     if (source != NULL) {
         dispatch_source_cancel(source);
         dispatch_release(source);
         source = NULL;
+        return YES;
     }
+    return NO;
 }
+
 - (BOOL)startWatching
 {
     return [self startMonitoringDirectory:[self watchedPath]];
@@ -98,6 +97,7 @@
     }
     return directoryMetadata;
 }
+
 - (void)checkChangesAfterDelay:(NSTimeInterval)timeInterval
 {
     NSArray *directoryMetadata = [self directoryMetadata];
@@ -107,6 +107,7 @@
         [self pollDirectoryForChanges:directoryMetadata];
     });
 }
+
 - (void)pollDirectoryForChanges:(NSArray *)oldDirectoryMetadata
 {
     NSArray *newDirectoryMetadata = [self directoryMetadata];
@@ -114,7 +115,7 @@
     // Check if metadata has changed
     [self setIsDirectoryChanging:![newDirectoryMetadata isEqualToArray:oldDirectoryMetadata]];
     // Reset retries if it's still changing
-    retriesLeft = ([self isDirectoryChanging]) ? kPollRetryCount : retriesLeft;
+    retriesLeft = [self isDirectoryChanging] ? kPollRetryCount : retriesLeft;
 
     if ([self isDirectoryChanging] || 0 < retriesLeft--) {
         // Either the directory is changing or we should try again
