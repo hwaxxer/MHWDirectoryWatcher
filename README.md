@@ -1,4 +1,4 @@
-atch# MHDirectoryWatcher
+# MHDirectoryWatcher
 `MHDirectoryWatcher` is a lightweight class that uses GCD to monitor a given path for changes.
 When changes to the directory occurs, `MHDirectoryWatcher` starts polling file sizes every second to make sure that file transfers are finished.
 
