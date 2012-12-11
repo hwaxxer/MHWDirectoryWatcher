@@ -1,6 +1,6 @@
 /*
  *  MHDirectoryWatcher.h
- *  Hacked by Martin Hwasser on 12/19/11.
+ *  Created by Martin Hwasser on 12/19/11.
  */
 
 #import <Foundation/Foundation.h>
@@ -10,9 +10,12 @@ static NSString * const MHDirectoryDidFinishChangesNotification = @"MHDirectoryD
 
 @interface MHDirectoryWatcher : NSObject
 
-@property (nonatomic, copy) NSString *watchedPath;
+// Returns an initialized MHDirectoryWatcher and begins to watch the path, if specified
++ (MHDirectoryWatcher *)directoryWatcherAtPath:(NSString *)watchPath
+                              startImmediately:(BOOL)startImmediately;
 
-// Does not start immediately by default
+// Equivalent to calling +directoryWatcherAtPath:startImmediately and passing
+// YES for startImmediately.
 + (MHDirectoryWatcher *)directoryWatcherAtPath:(NSString *)watchPath;
 
 // Returns YES if started watching, NO if already is watching
@@ -20,5 +23,7 @@ static NSString * const MHDirectoryDidFinishChangesNotification = @"MHDirectoryD
 // Returns YES if stopped watching, NO if not watching
 - (BOOL)stopWatching;
 
+// The path being watched
+@property (nonatomic, readonly, copy) NSString *watchedPath;
 
 @end
