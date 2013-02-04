@@ -1,6 +1,6 @@
 # MHDirectoryWatcher
 `MHDirectoryWatcher` is a lightweight class that uses GCD to monitor a given path for changes.
-When changes to the directory occurs, `MHDirectoryWatcher` starts polling file sizes every second to make sure that file transfers are finished.
+When any change to the directory occurs, `MHDirectoryWatcher` starts polling the monitored path, making sure that file transfers are finished before posting notifications.
 
 ### Installing
 Copy MHDirectoryWatcher.h+m into your project.
