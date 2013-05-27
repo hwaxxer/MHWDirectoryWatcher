@@ -13,6 +13,7 @@
 @interface MHDirectoryWatcher ()
 
 @property (nonatomic) dispatch_source_t source;
+@property (nonatomic) dispatch_queue_t queue;
 @property (nonatomic) NSInteger retriesLeft;
 @property (nonatomic, getter = isDirectoryChanging) BOOL directoryChanging;
 @property (nonatomic, readwrite, copy) NSString *watchedPath;
@@ -63,7 +64,6 @@
 {
     if (_source != NULL) {
         dispatch_source_cancel(_source);
-        dispatch_release(_source);
         _source = NULL;
         return YES;
     }
@@ -94,10 +94,13 @@
                                          fd, // our file descriptor
                                          DISPATCH_VNODE_WRITE, // The file-system object data changed.
                                          queue); // the queue to dispatch on
+
 	if (!_source) {
         cleanup();
 		return NO;
 	}
+
+    self.queue = dispatch_queue_create("MHDirectoryWatcherQueue", 0);
     
 	// Call directoryDidChange on event callback
 	dispatch_source_set_event_handler(self.source, ^{
@@ -146,7 +149,7 @@
     NSArray *directoryMetadata = [self directoryMetadata];
     
     dispatch_time_t popTime = dispatch_time(DISPATCH_TIME_NOW, timeInterval * NSEC_PER_SEC);
-    dispatch_after(popTime, dispatch_get_current_queue(), ^(void){
+    dispatch_after(popTime, self.queue, ^(void){
         [self pollDirectoryForChangesWithMetadata:directoryMetadata];
     });
 }
