@@ -4,8 +4,6 @@
  */
 
 #import "MHWDirectoryWatcher.h"
-#import <CoreFoundation/CoreFoundation.h>
-#include <fcntl.h>
 
 #define kMHWDirectoryWatcherPollInterval 0.2
 #define kMHWDirectoryWatcherPollRetryCount 5
