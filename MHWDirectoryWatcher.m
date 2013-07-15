@@ -1,16 +1,16 @@
 /*
- *  MHDirectoryWatcher.h
+ *  MHWDirectoryWatcher.h
  *  Created by Martin Hwasser on 12/19/11.
  */
 
-#import "MHDirectoryWatcher.h"
+#import "MHWDirectoryWatcher.h"
 #import <CoreFoundation/CoreFoundation.h>
 #include <fcntl.h>
 
-#define kMHDirectoryWatcherPollInterval 0.2
-#define kMHDirectoryWatcherPollRetryCount 5
+#define kMHWDirectoryWatcherPollInterval 0.2
+#define kMHWDirectoryWatcherPollRetryCount 5
 
-@interface MHDirectoryWatcher ()
+@interface MHWDirectoryWatcher ()
 
 @property (nonatomic) dispatch_source_t source;
 @property (nonatomic) dispatch_queue_t queue;
@@ -20,7 +20,7 @@
 
 @end
 
-@implementation MHDirectoryWatcher
+@implementation MHWDirectoryWatcher
 
 - (void)dealloc
 {
@@ -36,11 +36,11 @@
     return self;
 }
 
-+ (MHDirectoryWatcher *)directoryWatcherAtPath:(NSString *)watchedPath
++ (MHWDirectoryWatcher *)directoryWatcherAtPath:(NSString *)watchedPath
                               startImmediately:(BOOL)startImmediately
 {
     NSAssert(watchedPath != nil, @"The directory to watch must not be nil");
-	MHDirectoryWatcher *directoryWatcher = [[MHDirectoryWatcher alloc] initWithPath:watchedPath];
+	MHWDirectoryWatcher *directoryWatcher = [[MHWDirectoryWatcher alloc] initWithPath:watchedPath];
     if (startImmediately) {
         if (![directoryWatcher startWatching]) {
             // Something went wrong, return nil
@@ -50,9 +50,9 @@
 	return directoryWatcher;
 }
 
-+ (MHDirectoryWatcher *)directoryWatcherAtPath:(NSString *)watchPath
++ (MHWDirectoryWatcher *)directoryWatcherAtPath:(NSString *)watchPath
 {
-    return [MHDirectoryWatcher directoryWatcherAtPath:watchPath
+    return [MHWDirectoryWatcher directoryWatcherAtPath:watchPath
                                      startImmediately:YES];
 }
 
@@ -100,7 +100,7 @@
 		return NO;
 	}
 
-    self.queue = dispatch_queue_create("MHDirectoryWatcherQueue", 0);
+    self.queue = dispatch_queue_create("MHWDirectoryWatcherQueue", 0);
     
 	// Call directoryDidChange on event callback
 	dispatch_source_set_event_handler(self.source, ^{
@@ -162,17 +162,17 @@
     self.directoryChanging = ![newDirectoryMetadata isEqualToArray:oldDirectoryMetadata];
     
     // Reset retries if it's still changing
-    self.retriesLeft = self.isDirectoryChanging ? kMHDirectoryWatcherPollRetryCount : self.retriesLeft;
+    self.retriesLeft = self.isDirectoryChanging ? kMHWDirectoryWatcherPollRetryCount : self.retriesLeft;
     
     if (self.isDirectoryChanging || 0 < self.retriesLeft--) {
         // Either the directory is changing or
         // we should try again as more changes may occur
-        [self checkChangesAfterDelay:kMHDirectoryWatcherPollInterval];
+        [self checkChangesAfterDelay:kMHWDirectoryWatcherPollInterval];
     } else {
         // Changes appear to be completed
         // Post a notification informing that the directory did change
         dispatch_async(dispatch_get_main_queue(), ^{
-            [[NSNotificationCenter defaultCenter] postNotificationName:MHDirectoryDidFinishChangesNotification
+            [[NSNotificationCenter defaultCenter] postNotificationName:MHWDirectoryDidFinishChangesNotification
                                                                 object:self];
         });
     }
@@ -183,14 +183,14 @@
     if (!self.isDirectoryChanging) {
         // Changes just occurred
         dispatch_async(dispatch_get_main_queue(), ^{
-            [[NSNotificationCenter defaultCenter] postNotificationName:MHDirectoryDidStartChangesNotification
+            [[NSNotificationCenter defaultCenter] postNotificationName:MHWDirectoryDidStartChangesNotification
                                                                 object:self];
         });
         
         self.directoryChanging = YES;
-        self.retriesLeft = kMHDirectoryWatcherPollRetryCount;
+        self.retriesLeft = kMHWDirectoryWatcherPollRetryCount;
         
-        [self checkChangesAfterDelay:kMHDirectoryWatcherPollInterval];
+        [self checkChangesAfterDelay:kMHWDirectoryWatcherPollInterval];
     }
 }
 
