@@ -100,10 +100,11 @@
 	}
     
     self.queue = dispatch_queue_create("MHWDirectoryWatcherQueue", 0);
-    
+
+    __weak typeof (self) _weakSelf = self;
 	// Call directoryDidChange on event callback
 	dispatch_source_set_event_handler(self.source, ^{
-        [self directoryDidChange:cb];
+        [_weakSelf directoryDidChange:cb];
     });
     
     // Dispatch source destructor
@@ -146,10 +147,11 @@
 - (void)checkChangesAfterDelay:(NSTimeInterval)timeInterval callback:(void(^)())cb
 {
     NSArray *directoryMetadata = [self directoryMetadata];
-    
+
+    __weak typeof (self) _weakSelf = self;
     dispatch_time_t popTime = dispatch_time(DISPATCH_TIME_NOW, timeInterval * NSEC_PER_SEC);
     dispatch_after(popTime, self.queue, ^(void){
-        [self pollDirectoryForChangesWithMetadata:directoryMetadata callback:cb];
+        [_weakSelf pollDirectoryForChangesWithMetadata:directoryMetadata callback:cb];
     });
 }
 

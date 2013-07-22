@@ -12,7 +12,7 @@ Pod::Spec.new do |s|
   s.license      = { :type => 'MIT', :file => 'LICENSE' }
   s.author       = { 'Martin Hwasser' => 'martin.hwasser@gmail.com' }
   s.source       = { :git => 'https://github.com/hwaxxer/MHWDirectoryWatcher.git', :tag => s.version.to_s }
-  s.platform     = :ios
-  s.source_files = 'MHWDirectoryWatcher.{h,m}'
+  s.source_files = 'MHWDirectoryWatcher/*'
   s.requires_arc = true
+  s.platform     = :ios
 end
