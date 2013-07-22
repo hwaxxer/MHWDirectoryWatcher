@@ -49,20 +49,6 @@
 	return directoryWatcher;
 }
 
-+ (MHWDirectoryWatcher *)directoryWatcherAtPath:(NSString *)watchedPath
-                               startImmediately:(BOOL)startImmediately
-{
-    return [MHWDirectoryWatcher directoryWatcherAtPath:watchedPath
-                                      startImmediately:startImmediately
-                                              callback:^{}];
-}
-
-+ (MHWDirectoryWatcher *)directoryWatcherAtPath:(NSString *)watchPath
-{
-    return [MHWDirectoryWatcher directoryWatcherAtPath:watchPath
-                                      startImmediately:YES];
-}
-
 + (MHWDirectoryWatcher *)directoryWatcherAtPath:(NSString *)watchPath
                                        callback:(void(^)())cb
 {
@@ -81,11 +67,6 @@
         return YES;
     }
     return NO;
-}
-
-- (BOOL)startWatching
-{
-    return [self startWatchingWithCallback:^{}];
 }
 
 - (BOOL)startWatchingWithCallback:(void(^)())cb

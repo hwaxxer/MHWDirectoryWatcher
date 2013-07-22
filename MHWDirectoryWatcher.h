@@ -12,18 +12,12 @@
                                startImmediately:(BOOL)startImmediately
                                        callback:(void(^)())cb;
 
-+ (MHWDirectoryWatcher *)directoryWatcherAtPath:(NSString *)watchPath
-                               startImmediately:(BOOL)startImmediately;
-
 // Equivalent to calling +directoryWatcherAtPath:startImmediately and passing
 // YES for startImmediately.
 + (MHWDirectoryWatcher *)directoryWatcherAtPath:(NSString *)watchPath
                                        callback:(void(^)())cb;
 
-+ (MHWDirectoryWatcher *)directoryWatcherAtPath:(NSString *)watchPath;
-
 // Returns YES if started watching, NO if already is watching
-- (BOOL)startWatching;
 - (BOOL)startWatchingWithCallback:(void(^)())cb;
 
 // Returns YES if stopped watching, NO if not watching
