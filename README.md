@@ -5,10 +5,17 @@ When any change to the directory occurs, `MHWDirectoryWatcher` starts polling th
 ### Installing (without CocoaPods)
 Copy MHWDirectoryWatcher.h+m into your project.
 
-### Usage
-Get an instance of `MHWDirectoryWatcher` using factory method `+directoryWatcherAtPath` and it will start monitoring immediately.
+### Usage via Blocks
+Get an instance of `MHWDirectoryWatcher` using factory method `+directoryWatcherAtPath:callback:` and it will start monitoring immediately calling callback as soon as a file did finish changing (this corresponds to `MHWDirectoryDidFinishChangesNotification`)
 
-Add an observer for the notification name `MHWDirectoryDidFinishChangesNotification` to be notified when changes have been made to the directory.
-Optionally add an observer for the notification name `MHWDirectoryDidStartChangesNotification` to be notified when changes are about to happen.
+Example:
+
+```objective-c
+_dirWatcher = [MHWDirectoryWatcher directoryWatcherAtPath:kDocumentsFolder callback:^{
+            		// Actions which sould be performed as file did finish to change
+            		
+        	   }];
+
+```
 
 Call `-stopWatching` / `-startWatching` to pause/resume.

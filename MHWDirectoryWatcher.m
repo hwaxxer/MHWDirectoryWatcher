@@ -35,12 +35,13 @@
 }
 
 + (MHWDirectoryWatcher *)directoryWatcherAtPath:(NSString *)watchedPath
-                              startImmediately:(BOOL)startImmediately
+                               startImmediately:(BOOL)startImmediately
+                                       callback:(void(^)())cb
 {
     NSAssert(watchedPath != nil, @"The directory to watch must not be nil");
 	MHWDirectoryWatcher *directoryWatcher = [[MHWDirectoryWatcher alloc] initWithPath:watchedPath];
     if (startImmediately) {
-        if (![directoryWatcher startWatching]) {
+        if (![directoryWatcher startWatchingWithCallback:cb]) {
             // Something went wrong, return nil
             return nil;
         }
@@ -48,13 +49,27 @@
 	return directoryWatcher;
 }
 
++ (MHWDirectoryWatcher *)directoryWatcherAtPath:(NSString *)watchedPath
+                               startImmediately:(BOOL)startImmediately
+{
+    return [MHWDirectoryWatcher directoryWatcherAtPath:watchedPath
+                                      startImmediately:startImmediately
+                                              callback:^{}];
+}
+
 + (MHWDirectoryWatcher *)directoryWatcherAtPath:(NSString *)watchPath
 {
     return [MHWDirectoryWatcher directoryWatcherAtPath:watchPath
-                                     startImmediately:YES];
+                                      startImmediately:YES];
 }
 
-
++ (MHWDirectoryWatcher *)directoryWatcherAtPath:(NSString *)watchPath
+                                       callback:(void(^)())cb
+{
+    return [MHWDirectoryWatcher directoryWatcherAtPath:watchPath
+                                      startImmediately:YES
+                                              callback:cb];
+}
 #pragma mark -
 #pragma mark - Public methods
 
@@ -69,6 +84,11 @@
 }
 
 - (BOOL)startWatching
+{
+    return [self startWatchingWithCallback:^{}];
+}
+
+- (BOOL)startWatchingWithCallback:(void(^)())cb
 {
     // Already monitoring
 	if (self.source != NULL) {
@@ -92,17 +112,17 @@
                                          fd, // our file descriptor
                                          DISPATCH_VNODE_WRITE, // The file-system object data changed.
                                          queue); // the queue to dispatch on
-
+    
 	if (!_source) {
         cleanup();
 		return NO;
 	}
-
+    
     self.queue = dispatch_queue_create("MHWDirectoryWatcherQueue", 0);
     
 	// Call directoryDidChange on event callback
 	dispatch_source_set_event_handler(self.source, ^{
-        [self directoryDidChange];
+        [self directoryDidChange:cb];
     });
     
     // Dispatch source destructor
@@ -142,17 +162,17 @@
     return directoryMetadata;
 }
 
-- (void)checkChangesAfterDelay:(NSTimeInterval)timeInterval
+- (void)checkChangesAfterDelay:(NSTimeInterval)timeInterval callback:(void(^)())cb
 {
     NSArray *directoryMetadata = [self directoryMetadata];
     
     dispatch_time_t popTime = dispatch_time(DISPATCH_TIME_NOW, timeInterval * NSEC_PER_SEC);
     dispatch_after(popTime, self.queue, ^(void){
-        [self pollDirectoryForChangesWithMetadata:directoryMetadata];
+        [self pollDirectoryForChangesWithMetadata:directoryMetadata callback:cb];
     });
 }
 
-- (void)pollDirectoryForChangesWithMetadata:(NSArray *)oldDirectoryMetadata
+- (void)pollDirectoryForChangesWithMetadata:(NSArray *)oldDirectoryMetadata callback:(void(^)())cb
 {
     NSArray *newDirectoryMetadata = [self directoryMetadata];
     
@@ -165,30 +185,24 @@
     if (self.isDirectoryChanging || 0 < self.retriesLeft--) {
         // Either the directory is changing or
         // we should try again as more changes may occur
-        [self checkChangesAfterDelay:kMHWDirectoryWatcherPollInterval];
+        [self checkChangesAfterDelay:kMHWDirectoryWatcherPollInterval callback:cb];
     } else {
         // Changes appear to be completed
         // Post a notification informing that the directory did change
         dispatch_async(dispatch_get_main_queue(), ^{
-            [[NSNotificationCenter defaultCenter] postNotificationName:MHWDirectoryDidFinishChangesNotification
-                                                                object:self];
+            cb();
         });
     }
 }
 
-- (void)directoryDidChange
+- (void)directoryDidChange:(void(^)())cb
 {
     if (!self.isDirectoryChanging) {
         // Changes just occurred
-        dispatch_async(dispatch_get_main_queue(), ^{
-            [[NSNotificationCenter defaultCenter] postNotificationName:MHWDirectoryDidStartChangesNotification
-                                                                object:self];
-        });
-        
         self.directoryChanging = YES;
         self.retriesLeft = kMHWDirectoryWatcherPollRetryCount;
         
-        [self checkChangesAfterDelay:kMHWDirectoryWatcherPollInterval];
+        [self checkChangesAfterDelay:kMHWDirectoryWatcherPollInterval callback:cb];
     }
 }
 
