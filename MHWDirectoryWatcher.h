@@ -5,9 +5,6 @@
 
 #import <Foundation/Foundation.h>
 
-static NSString * const MHWDirectoryDidStartChangesNotification = @"MHWDirectoryDidStartChangesNotification";
-static NSString * const MHWDirectoryDidFinishChangesNotification = @"MHWDirectoryDidFinishChangesNotification";
-
 @interface MHWDirectoryWatcher : NSObject
 
 // Returns an initialized MHWDirectoryWatcher and begins to watch the path, if specified

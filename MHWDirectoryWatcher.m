@@ -190,8 +190,6 @@
         // Changes appear to be completed
         // Post a notification informing that the directory did change
         dispatch_async(dispatch_get_main_queue(), ^{
-            [[NSNotificationCenter defaultCenter] postNotificationName:MHWDirectoryDidFinishChangesNotification
-                                                                object:self];
             cb();
         });
     }
@@ -201,11 +199,6 @@
 {
     if (!self.isDirectoryChanging) {
         // Changes just occurred
-        dispatch_async(dispatch_get_main_queue(), ^{
-            [[NSNotificationCenter defaultCenter] postNotificationName:MHWDirectoryDidStartChangesNotification
-                                                                object:self];
-        });
-        
         self.directoryChanging = YES;
         self.retriesLeft = kMHWDirectoryWatcherPollRetryCount;
         
