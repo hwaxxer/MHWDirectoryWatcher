@@ -18,7 +18,7 @@
                                        callback:(void(^)())cb;
 
 // Returns YES if started watching, NO if already is watching
-- (BOOL)startWatchingWithCallback:(void(^)())cb;
+- (BOOL)startWatching;
 
 // Returns YES if stopped watching, NO if not watching
 - (BOOL)stopWatching;

@@ -8,6 +8,8 @@
 #define kMHWDirectoryWatcherPollInterval 0.2
 #define kMHWDirectoryWatcherPollRetryCount 5
 
+typedef void (^MHWDirectoryWatcherCallback)(void);
+
 @interface MHWDirectoryWatcher ()
 
 @property (nonatomic) dispatch_source_t source;
@@ -15,6 +17,7 @@
 @property (nonatomic) NSInteger retriesLeft;
 @property (nonatomic, getter = isDirectoryChanging) BOOL directoryChanging;
 @property (nonatomic, readwrite, copy) NSString *watchedPath;
+@property (nonatomic, copy) MHWDirectoryWatcherCallback callback;
 
 @end
 
@@ -23,6 +26,7 @@
 - (void)dealloc
 {
     [self stopWatching];
+    _callback = nil;
 }
 
 - (id)initWithPath:(NSString *)path
@@ -40,8 +44,10 @@
 {
     NSAssert(watchedPath != nil, @"The directory to watch must not be nil");
 	MHWDirectoryWatcher *directoryWatcher = [[MHWDirectoryWatcher alloc] initWithPath:watchedPath];
+    directoryWatcher.callback = cb;
+    
     if (startImmediately) {
-        if (![directoryWatcher startWatchingWithCallback:cb]) {
+        if (![directoryWatcher startWatching]) {
             // Something went wrong, return nil
             return nil;
         }
@@ -69,7 +75,7 @@
     return NO;
 }
 
-- (BOOL)startWatchingWithCallback:(void(^)())cb
+- (BOOL)startWatching
 {
     // Already monitoring
 	if (self.source != NULL) {
@@ -104,7 +110,7 @@
     __weak typeof (self) _weakSelf = self;
 	// Call directoryDidChange on event callback
 	dispatch_source_set_event_handler(self.source, ^{
-        [_weakSelf directoryDidChange:cb];
+        [_weakSelf directoryDidChange];
     });
     
     // Dispatch source destructor
@@ -144,18 +150,18 @@
     return directoryMetadata;
 }
 
-- (void)checkChangesAfterDelay:(NSTimeInterval)timeInterval callback:(void(^)())cb
+- (void)checkChangesAfterDelay:(NSTimeInterval)timeInterval
 {
     NSArray *directoryMetadata = [self directoryMetadata];
 
     __weak typeof (self) _weakSelf = self;
     dispatch_time_t popTime = dispatch_time(DISPATCH_TIME_NOW, timeInterval * NSEC_PER_SEC);
     dispatch_after(popTime, self.queue, ^(void){
-        [_weakSelf pollDirectoryForChangesWithMetadata:directoryMetadata callback:cb];
+        [_weakSelf pollDirectoryForChangesWithMetadata:directoryMetadata];
     });
 }
 
-- (void)pollDirectoryForChangesWithMetadata:(NSArray *)oldDirectoryMetadata callback:(void(^)())cb
+- (void)pollDirectoryForChangesWithMetadata:(NSArray *)oldDirectoryMetadata
 {
     NSArray *newDirectoryMetadata = [self directoryMetadata];
     
@@ -168,24 +174,24 @@
     if (self.isDirectoryChanging || 0 < self.retriesLeft--) {
         // Either the directory is changing or
         // we should try again as more changes may occur
-        [self checkChangesAfterDelay:kMHWDirectoryWatcherPollInterval callback:cb];
+        [self checkChangesAfterDelay:kMHWDirectoryWatcherPollInterval];
     } else {
         // Changes appear to be completed
         // Post a notification informing that the directory did change
         dispatch_async(dispatch_get_main_queue(), ^{
-            cb();
+            self.callback();
         });
     }
 }
 
-- (void)directoryDidChange:(void(^)())cb
+- (void)directoryDidChange
 {
     if (!self.isDirectoryChanging) {
         // Changes just occurred
         self.directoryChanging = YES;
         self.retriesLeft = kMHWDirectoryWatcherPollRetryCount;
         
-        [self checkChangesAfterDelay:kMHWDirectoryWatcherPollInterval callback:cb];
+        [self checkChangesAfterDelay:kMHWDirectoryWatcherPollInterval];
     }
 }
 
