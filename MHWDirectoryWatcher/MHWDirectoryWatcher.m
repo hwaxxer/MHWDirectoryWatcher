@@ -34,6 +34,7 @@ typedef void (^MHWDirectoryWatcherCallback)(void);
     self = [super init];
     if (self) {
         _watchedPath = [path copy];
+        _queue = dispatch_queue_create("MHWDirectoryWatcherQueue", 0);
     }
     return self;
 }
@@ -43,7 +44,7 @@ typedef void (^MHWDirectoryWatcherCallback)(void);
                                        callback:(void(^)())cb
 {
     NSAssert(watchedPath != nil, @"The directory to watch must not be nil");
-	MHWDirectoryWatcher *directoryWatcher = [[MHWDirectoryWatcher alloc] initWithPath:watchedPath];
+    MHWDirectoryWatcher *directoryWatcher = [[MHWDirectoryWatcher alloc] initWithPath:watchedPath];
     directoryWatcher.callback = cb;
     
     if (startImmediately) {
@@ -52,7 +53,7 @@ typedef void (^MHWDirectoryWatcherCallback)(void);
             return nil;
         }
     }
-	return directoryWatcher;
+    return directoryWatcher;
 }
 
 + (MHWDirectoryWatcher *)directoryWatcherAtPath:(NSString *)watchPath
@@ -78,46 +79,45 @@ typedef void (^MHWDirectoryWatcherCallback)(void);
 - (BOOL)startWatching
 {
     // Already monitoring
-	if (self.source != NULL) {
+    if (self.source != NULL) {
         return NO;
     }
     
-	// Open an event-only file descriptor associated with the directory
-	int fd = open([self.watchedPath fileSystemRepresentation], O_EVTONLY);
-	if (fd < 0) {
+    // Open an event-only file descriptor associated with the directory
+    int fd = open([self.watchedPath fileSystemRepresentation], O_EVTONLY);
+    if (fd < 0) {
         return NO;
     }
     
     void (^cleanup)() = ^{
         close(fd);
     };
-    // Get a low priority queue
-	dispatch_queue_t queue = dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0);
     
-	// Monitor the directory for writes
-	self.source = dispatch_source_create(DISPATCH_SOURCE_TYPE_VNODE, // Monitors a file descriptor
+    // Get a low priority queue
+    dispatch_queue_t queue = dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_LOW, 0);
+    
+    // Monitor the directory for writes
+    self.source = dispatch_source_create(DISPATCH_SOURCE_TYPE_VNODE, // Monitors a file descriptor
                                          fd, // our file descriptor
                                          DISPATCH_VNODE_WRITE, // The file-system object data changed.
                                          queue); // the queue to dispatch on
     
-	if (!_source) {
+    if (!_source) {
         cleanup();
-		return NO;
-	}
+        return NO;
+    }
     
-    self.queue = dispatch_queue_create("MHWDirectoryWatcherQueue", 0);
-
     __weak typeof (self) _weakSelf = self;
-	// Call directoryDidChange on event callback
-	dispatch_source_set_event_handler(self.source, ^{
+    // Call directoryDidChange on event callback
+    dispatch_source_set_event_handler(self.source, ^{
         [_weakSelf directoryDidChange];
     });
     
     // Dispatch source destructor
-	dispatch_source_set_cancel_handler(self.source, cleanup);
+    dispatch_source_set_cancel_handler(self.source, cleanup);
     
-	// Sources are create in suspended state, so resume it
-	dispatch_resume(self.source);
+    // Sources are create in suspended state, so resume it
+    dispatch_resume(self.source);
     
     // Everything was OK
     return YES;

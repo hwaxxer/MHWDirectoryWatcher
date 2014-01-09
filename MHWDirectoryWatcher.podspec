@@ -6,7 +6,7 @@
 #
 Pod::Spec.new do |s|
   s.name         = 'MHWDirectoryWatcher'
-  s.version      = '0.0.3'
+  s.version      = '0.0.4'
   s.summary      = 'MHWDirectoryWatcher is a lightweight and efficient class that uses GCD to monitor a given directory for changes.'
   s.homepage     = 'https://github.com/hwaxxer/MHWDirectoryWatcher'
   s.license      = { :type => 'MIT', :file => 'LICENSE' }
