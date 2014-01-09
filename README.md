@@ -7,8 +7,8 @@ Copy `MHWDirectoryWatcher.h+m` into your project.
 
 (or use [CocoaPods](http://cocoapods.org))
 
-### Usage via Blocks
-Get an instance of `MHWDirectoryWatcher` using the factory method `+directoryWatcherAtPath:callback:` and it will start monitoring the path immediately, calling the callback when files have changed.
+### Usage via blocks
+Get an instance of `MHWDirectoryWatcher` using the factory method `+directoryWatcherAtPath:callback:` and it will start monitoring the path immediately. Callback occurs after files have changed.
 
 Example:
 
@@ -23,3 +23,9 @@ _dirWatcher = [MHWDirectoryWatcher directoryWatcherAtPath:kDocumentsFolder callb
 ```
 
 Call `-stopWatching` / `-startWatching` to pause/resume.
+
+---
+
+Used in [Kobo](https://itunes.apple.com/se/app/kobo-books/id301259483?l=en&mt=8) and [Readmill](https://itunes.apple.com/se/app/readmill-book-reader-for-epub/id438032664?l=en&mt=8). 
+
+If you like this repository and use it in your project, I'd love to hear about it!
