@@ -142,7 +142,7 @@ typedef void (^MHWDirectoryWatcherCallback)(void);
                                                                                             error:nil];
             NSInteger fileSize = [[fileAttributes objectForKey:NSFileSize] intValue];
             // The fileName and fileSize will be our hash key
-            NSString *fileHash = [NSString stringWithFormat:@"%@%d", fileName, fileSize];
+            NSString *fileHash = [NSString stringWithFormat:@"%@%ld", fileName, (long)fileSize];
             // Add it to our metadata list
             [directoryMetadata addObject:fileHash];
         }
