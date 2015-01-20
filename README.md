@@ -13,11 +13,9 @@ Get an instance of `MHWDirectoryWatcher` using the factory method `+directoryWat
 Example:
 
 ```objective-c
-// Avoid a retain cycle
-__weak typeof(self) weakSelf = self;
 _dirWatcher = [MHWDirectoryWatcher directoryWatcherAtPath:kDocumentsFolder callback:^{
                   // Actions which should be performed when the files in the directory 
-                  [weakSelf doSomethingNice];
+                  [self doSomethingNice];
         	   }];
 
 ```
