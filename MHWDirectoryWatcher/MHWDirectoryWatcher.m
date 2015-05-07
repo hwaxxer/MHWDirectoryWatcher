@@ -107,7 +107,7 @@ typedef void (^MHWDirectoryWatcherCallback)(void);
         return NO;
     }
     
-    __weak typeof (self) _weakSelf = self;
+    __weak __typeof__(self) _weakSelf = self;
     // Call directoryDidChange on event callback
     dispatch_source_set_event_handler(self.source, ^{
         [_weakSelf directoryDidChange];
@@ -154,7 +154,7 @@ typedef void (^MHWDirectoryWatcherCallback)(void);
 {
     NSArray *directoryMetadata = [self directoryMetadata];
 
-    __weak typeof (self) _weakSelf = self;
+    __weak __typeof__(self) _weakSelf = self;
     dispatch_time_t popTime = dispatch_time(DISPATCH_TIME_NOW, timeInterval * NSEC_PER_SEC);
     dispatch_after(popTime, self.queue, ^(void){
         [_weakSelf pollDirectoryForChangesWithMetadata:directoryMetadata];
