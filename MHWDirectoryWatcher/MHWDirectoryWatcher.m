@@ -41,7 +41,7 @@ typedef void (^MHWDirectoryWatcherCallback)(void);
 
 + (MHWDirectoryWatcher *)directoryWatcherAtPath:(NSString *)watchedPath
                                startImmediately:(BOOL)startImmediately
-                                       callback:(void(^)())cb
+                                       callback:(void(^)(void))cb
 {
     NSAssert(watchedPath != nil, @"The directory to watch must not be nil");
     MHWDirectoryWatcher *directoryWatcher = [[MHWDirectoryWatcher alloc] initWithPath:watchedPath];
@@ -57,7 +57,7 @@ typedef void (^MHWDirectoryWatcherCallback)(void);
 }
 
 + (MHWDirectoryWatcher *)directoryWatcherAtPath:(NSString *)watchPath
-                                       callback:(void(^)())cb
+                                       callback:(void(^)(void))cb
 {
     return [MHWDirectoryWatcher directoryWatcherAtPath:watchPath
                                       startImmediately:YES
@@ -89,7 +89,7 @@ typedef void (^MHWDirectoryWatcherCallback)(void);
         return NO;
     }
     
-    void (^cleanup)() = ^{
+    void (^cleanup)(void) = ^{
         close(fd);
     };
     
