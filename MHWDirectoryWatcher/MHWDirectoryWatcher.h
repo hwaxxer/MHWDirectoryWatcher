@@ -10,12 +10,12 @@
 // Returns an initialized MHWDirectoryWatcher and begins to watch the path, if specified
 + (MHWDirectoryWatcher *)directoryWatcherAtPath:(NSString *)watchedPath
                                startImmediately:(BOOL)startImmediately
-                                       callback:(void(^)())cb;
+                                       callback:(void(^)(void))cb;
 
 // Equivalent to calling +directoryWatcherAtPath:startImmediately and passing
 // YES for startImmediately.
 + (MHWDirectoryWatcher *)directoryWatcherAtPath:(NSString *)watchPath
-                                       callback:(void(^)())cb;
+                                       callback:(void(^)(void))cb;
 
 // Returns YES if started watching, NO if already is watching
 - (BOOL)startWatching;
